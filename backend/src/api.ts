@@ -3,10 +3,11 @@
 //
 // The URLs are fixed here. The frontend can never make us fetch an arbitrary URL.
 
-import type { NewLocation } from "./types";
-import { parseGeocodeResponse } from "./conversions";
+import type { CurrentWeather, NewLocation, WeatherResult } from "./types";
+import { parseForecastResponse, parseGeocodeResponse } from "./conversions";
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
 /** Give up on Open-Meteo after this long (R3: a slow API mustn't hang our server). */
 const UPSTREAM_TIMEOUT_MS = 5000;
@@ -33,6 +34,8 @@ async function fetchJson(url: URL): Promise<unknown> {
   }
 }
 
+// ---- Geocoding --------------------------------------------------------------
+
 /** Looks up a city name. Returns null if Open-Meteo doesn't know it. */
 export async function geocodeCity(name: string): Promise<NewLocation | null> {
   const url = new URL(GEOCODING_URL);
@@ -46,5 +49,43 @@ export async function geocodeCity(name: string): Promise<NewLocation | null> {
     return parseGeocodeResponse(json);
   } catch (err) {
     throw new UpstreamError((err as Error).message);
+  }
+}
+
+// ---- Weather ----------------------------------------------------------------
+
+async function fetchCurrentWeather(lat: number, lon: number): Promise<CurrentWeather> {
+  const url = new URL(FORECAST_URL);
+  url.searchParams.set("latitude", String(lat));
+  url.searchParams.set("longitude", String(lon));
+  url.searchParams.set(
+    "current",
+    "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+  );
+  url.searchParams.set("timezone", "GMT");
+
+  const json = await fetchJson(url);
+  try {
+    return parseForecastResponse(json);
+  } catch (err) {
+    throw new UpstreamError((err as Error).message);
+  }
+}
+
+/**
+ * Weather for one location. NEVER throws: any failure becomes an
+ * "unavailable" result, so one bad location can't break the whole list (R3).
+ */
+export async function getWeather(lat: number, lon: number): Promise<WeatherResult> {
+  try {
+    const data = await fetchCurrentWeather(lat, lon);
+    return { status: "ok", data, fetchedAt: new Date().toISOString() };
+  } catch (err) {
+    if (err instanceof UpstreamError) {
+      console.warn(`weather failed for ${lat},${lon}: ${err.message}`);
+    } else {
+      console.error(`unexpected error getting weather for ${lat},${lon}:`, err);
+    }
+    return { status: "unavailable", error: "Weather is unavailable right now" };
   }
 }

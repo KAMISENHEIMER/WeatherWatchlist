@@ -2,7 +2,8 @@
 // Business logic lives in store.ts (saved locations) and api.ts (Open-Meteo).
 
 import express, { type ErrorRequestHandler } from "express";
-import { geocodeCity, UpstreamError } from "./api";
+import { geocodeCity, getWeather, UpstreamError } from "./api";
+import type { Location, WatchlistItem } from "./types";
 import {
   addLocation,
   DuplicateLocationError,
@@ -24,8 +25,18 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+/** Attaches weather to a saved location. Can't fail: getWeather never throws. */
+async function withWeather(location: Location): Promise<WatchlistItem> {
+  return { ...location, weather: await getWeather(location.lat, location.lon) };
+}
+
+// The whole watchlist with weather. Always 200 even if every weather lookup
+// fails; each item's `weather.status` says what happened for that location.
+// Lookups run in parallel, so the total wait is the slowest one, not the sum.
 app.get("/api/locations", async (_req, res) => {
-  res.json(await listLocations());
+  const locations = await listLocations();
+  const items: WatchlistItem[] = await Promise.all(locations.map(withWeather));
+  res.json(items);
 });
 
 app.post("/api/locations", async (req, res) => {
@@ -60,7 +71,9 @@ app.post("/api/locations", async (req, res) => {
 
   try {
     const location = await addLocation(place);
-    res.status(201).json(location);
+    // Return it with weather so the frontend can show the new row immediately.
+    // If weather fails, the location is still saved; it just shows "unavailable".
+    res.status(201).json(await withWeather(location));
   } catch (err) {
     if (err instanceof DuplicateLocationError) {
       res.status(409).json({ error: err.message });
