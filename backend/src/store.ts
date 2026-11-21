@@ -13,7 +13,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Location } from "./types";
+import type { Location, NewLocation } from "./types";
 import { coordKey } from "./conversions";
 
 const DATA_FILE =
@@ -116,9 +116,7 @@ export function listLocations(): Promise<Location[]> {
  * Saves a new location. The duplicate check happens inside the lock, so two
  * simultaneous requests for the same city can't both get through.
  */
-export function addLocation(
-  input: Omit<Location, "id" | "createdAt">,
-): Promise<Location> {
+export function addLocation(input: NewLocation): Promise<Location> {
   return withLock(async () => {
     const locations = await readAll();
     const key = coordKey(input.lat, input.lon);

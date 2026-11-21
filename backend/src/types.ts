@@ -12,6 +12,9 @@ export interface Location {
   createdAt: string; // ISO timestamp
 }
 
+/** A geocoded place that hasn't been saved yet (no id or timestamp). */
+export type NewLocation = Omit<Location, "id" | "createdAt">;
+
 /** Current conditions for one location, already converted to our own field names. */
 export interface CurrentWeather {
   temperatureC: number;
