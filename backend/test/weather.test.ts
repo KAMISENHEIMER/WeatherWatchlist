@@ -48,3 +48,57 @@ test("simultaneous requests with an empty cache share one Open-Meteo call", asyn
   assert.ok(results.every((r) => r.status === "ok"));
   assert.equal(fakeFetch.mock.callCount(), 1);
 });
+
+// ---- R3: graceful degradation ----
+
+const failingFetch = async () => {
+  throw new TypeError("fetch failed"); // what Node's fetch throws when offline
+};
+
+test("API down with nothing cached -> unavailable, no throw", async () => {
+  mock.method(globalThis, "fetch", failingFetch);
+  const result = await getWeather(4, 4);
+  assert.equal(result.status, "unavailable");
+});
+
+test("API down after TTL expired -> serves the old reading as stale", async () => {
+  mock.timers.enable({ apis: ["Date"], now: 0 });
+  await getWeather(5, 5); // fills the cache via the working fake fetch
+
+  mock.method(globalThis, "fetch", failingFetch);
+  mock.timers.tick(CACHE_TTL_MS + 5 * 60_000); // 15 minutes later
+
+  const result = await getWeather(5, 5);
+  assert.equal(result.status, "stale");
+  assert.ok(result.status === "stale" && result.ageMinutes === 15);
+});
+
+test("API hangs -> request is aborted by the timeout -> unavailable (takes ~5s)", async () => {
+  // A fetch that never answers, but gives up when its abort signal fires,
+  // just like the real fetch does.
+  mock.method(globalThis, "fetch", (_url: URL, init: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      init.signal!.addEventListener("abort", () => reject(init.signal!.reason));
+    }),
+  );
+  // AbortSignal.timeout's timer doesn't keep Node alive by itself. In the real
+  // server the open HTTP socket does that; here an interval stands in for it.
+  const keepAlive = setInterval(() => {}, 1000);
+  const started = Date.now();
+  const result = await getWeather(8, 8);
+  const elapsed = Date.now() - started;
+  clearInterval(keepAlive);
+
+  assert.equal(result.status, "unavailable");
+  assert.ok(elapsed >= 4900 && elapsed < 7000, `took ${elapsed} ms`);
+});
+
+test("API returns an HTTP error -> unavailable", async () => {
+  mock.method(globalThis, "fetch", async () => new Response("oops", { status: 503 }));
+  assert.equal((await getWeather(6, 6)).status, "unavailable");
+});
+
+test("API returns JSON in an unexpected shape -> unavailable", async () => {
+  mock.method(globalThis, "fetch", async () => Response.json({ current: { time: "x" } }));
+  assert.equal((await getWeather(7, 7)).status, "unavailable");
+});

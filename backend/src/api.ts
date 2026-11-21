@@ -113,8 +113,15 @@ function fetchAndCache(key: string, lat: number, lon: number): Promise<CacheEntr
 }
 
 /**
- * Weather for one location. NEVER throws: any failure becomes an
- * "unavailable" result, so one bad location can't break the whole list (R3).
+ * Weather for one location. NEVER throws, so one bad location can't break the
+ * whole list (R3). In order of preference:
+ *   1. fresh cache entry           -> "ok"
+ *   2. live Open-Meteo reading     -> "ok"
+ *   3. expired cache entry         -> "stale" (API failed, but we have old data)
+ *   4. nothing                     -> "unavailable"
+ *
+ * Expired entries are deliberately kept in the cache because they're the
+ * fallback for case 3.
  */
 export async function getWeather(lat: number, lon: number): Promise<WeatherResult> {
   const key = coordKey(lat, lon);
@@ -133,6 +140,17 @@ export async function getWeather(lat: number, lon: number): Promise<WeatherResul
       console.warn(`weather failed for ${lat},${lon}: ${err.message}`);
     } else {
       console.error(`unexpected error getting weather for ${lat},${lon}:`, err);
+    }
+
+    if (cached) {
+      const ageMinutes = Math.floor((Date.now() - cached.fetchedAt) / 60_000);
+      console.log(`cache STALE ${key} (serving ${ageMinutes} min old reading)`);
+      return {
+        status: "stale",
+        data: cached.data,
+        fetchedAt: new Date(cached.fetchedAt).toISOString(),
+        ageMinutes,
+      };
     }
     return { status: "unavailable", error: "Weather is unavailable right now" };
   }
