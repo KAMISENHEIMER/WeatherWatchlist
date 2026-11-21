@@ -4,7 +4,7 @@
 // The URLs are fixed here. The frontend can never make us fetch an arbitrary URL.
 
 import type { CurrentWeather, NewLocation, WeatherResult } from "./types";
-import { parseForecastResponse, parseGeocodeResponse } from "./conversions";
+import { coordKey, parseForecastResponse, parseGeocodeResponse } from "./conversions";
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
@@ -72,14 +72,62 @@ async function fetchCurrentWeather(lat: number, lon: number): Promise<CurrentWea
   }
 }
 
+// ---- Weather cache (requirement R2) -----------------------------------------
+//
+// In-memory, keyed by rounded coordinates. Lost on restart and not shared
+// between server processes; fine for one server, the first thing to replace
+// (e.g. with Redis) at scale.
+
+/** How long a weather reading counts as fresh. */
+export const CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface CacheEntry {
+  data: CurrentWeather;
+  fetchedAt: number; // Date.now() when Open-Meteo answered
+}
+
+const cache = new Map<string, CacheEntry>();
+
+// Requests to Open-Meteo that are still in progress, by cache key. If two page
+// loads arrive together with an empty cache, the second one waits for the first
+// one's request instead of sending its own.
+const inFlight = new Map<string, Promise<CacheEntry>>();
+
+function fetchAndCache(key: string, lat: number, lon: number): Promise<CacheEntry> {
+  const pending = inFlight.get(key);
+  if (pending) {
+    console.log(`cache WAIT ${key} (request already in progress)`);
+    return pending;
+  }
+
+  console.log(`cache MISS ${key} -> calling Open-Meteo`);
+  const request = fetchCurrentWeather(lat, lon)
+    .then((data) => {
+      const entry = { data, fetchedAt: Date.now() };
+      cache.set(key, entry);
+      return entry;
+    })
+    .finally(() => inFlight.delete(key)); // success or failure, the next caller starts fresh
+  inFlight.set(key, request);
+  return request;
+}
+
 /**
  * Weather for one location. NEVER throws: any failure becomes an
  * "unavailable" result, so one bad location can't break the whole list (R3).
  */
 export async function getWeather(lat: number, lon: number): Promise<WeatherResult> {
+  const key = coordKey(lat, lon);
+
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    console.log(`cache HIT  ${key}`);
+    return { status: "ok", data: cached.data, fetchedAt: new Date(cached.fetchedAt).toISOString() };
+  }
+
   try {
-    const data = await fetchCurrentWeather(lat, lon);
-    return { status: "ok", data, fetchedAt: new Date().toISOString() };
+    const entry = await fetchAndCache(key, lat, lon);
+    return { status: "ok", data: entry.data, fetchedAt: new Date(entry.fetchedAt).toISOString() };
   } catch (err) {
     if (err instanceof UpstreamError) {
       console.warn(`weather failed for ${lat},${lon}: ${err.message}`);
