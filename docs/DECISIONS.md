@@ -27,6 +27,6 @@
 ## Knowingly cut (to stay inside 3 hours)
 
 - City autocomplete or a map picker. Open-Meteo's geocoder already resolves the closest match on submit.
-- Forecasts, history, and comparison charts across cities; other Open-Meteo data like air quality.
+- Forecasts, history, and comparison charts across cities you have saved.
+- Looking at the Open-Mateo Documentation, theres a lot of other interesting features that wouldve been fun to implement with more time, such as air quality, satelite radiation, or climate models. 
 - Automatic refresh and a manual refresh button (weather updates on reload).
-- Frontend tests. I checked the UI by driving it in a headless browser instead. The backend has automated tests for R2–R4, the parts graded most closely.
