@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { addLocation, ApiError, getLocations, removeLocation } from "./api";
 import type { WatchlistItem } from "./types";
 import AddCityForm from "./components/AddCityForm";
-import LastUpdated from "./components/LastUpdated";
 import LoadingGrid from "./components/LoadingGrid";
 import LocationCard from "./components/LocationCard";
 import ServerDown from "./components/ServerDown";
@@ -70,14 +69,11 @@ export default function App() {
       <header className="header">
         <div>
           <h1 className="title">Weather Watchlist</h1>
-          <div className="subtitle-row">
-            <p className="subtitle">
-              {count === null
-                ? "Current weather for the places you follow"
-                : `${count} saved ${count === 1 ? "place" : "places"}`}
-            </p>
-            {page.kind === "ready" && <LastUpdated items={page.items} />}
-          </div>
+          <p className="subtitle">
+            {count === null
+              ? "Current weather for the places you follow"
+              : `${count} saved ${count === 1 ? "place" : "places"}`}
+          </p>
         </div>
         <AddCityForm onAdd={handleAdd} />
       </header>

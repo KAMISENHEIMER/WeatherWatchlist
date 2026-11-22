@@ -30,7 +30,6 @@ npm run build      # type-check + production bundle in dist/
 | [`src/components/AddCityForm.tsx`](../frontend/src/components/AddCityForm.tsx) | The "Add a city" input and button. Owns its own input text, `submitting` and `error` state. Rejects blank input locally; otherwise calls `onAdd` and shows the server's message under the input if it throws ("Couldn't find a city…", "…already in your watchlist", server down). Disabled while saving; clears on success. |
 | [`src/components/LocationCard.tsx`](../frontend/src/components/LocationCard.tsx) | One saved place. Shows each `weather.status` differently: `ok` (icon, temperature, condition, humidity, wind), `stale` (the same plus a "Last updated N min ago" badge), `unavailable` (a dashed "Weather unavailable right now" box). Has the remove button, with its own `removing` and error state. |
 | [`src/components/WeatherIcon.tsx`](../frontend/src/components/WeatherIcon.tsx) | Maps a WMO weather code to one of six inline SVG line icons (sun, partly cloudy, cloud, rain, snow, storm). Decorative only (`aria-hidden`), since the condition text is shown next to it. Icon colours come from CSS classes so dark mode can change them. |
-| [`src/components/LastUpdated.tsx`](../frontend/src/components/LastUpdated.tsx) | The small "Last updated 3m ago" text next to the place count. Uses the newest `fetchedAt` across all cards, which is when the backend last called Open-Meteo. It's the cached time, so reloading within 10 minutes doesn't reset it. Has its own 30-second timer so the label counts up while the page is open, and clears the timer when unmounted. |
 | [`src/components/ThemeToggle.tsx`](../frontend/src/components/ThemeToggle.tsx) | The "Dark mode" switch in the footer (`role="switch"`). Sets `data-theme` on `<html>` and remembers the choice in `localStorage`. Uses `useLayoutEffect` so the theme is applied before the first paint, with no flash of the light page. |
 | [`src/components/LoadingGrid.tsx`](../frontend/src/components/LoadingGrid.tsx) | Three pulsing placeholder cards shown while the first load is in flight. |
 | [`src/components/ServerDown.tsx`](../frontend/src/components/ServerDown.tsx) | The full-width panel shown when the watchlist can't be loaded: the error message and a "Try again" button that re-runs the load. |
@@ -62,7 +61,8 @@ App (holds PageState)
 
 ## Known limits
 
-- **No automatic refresh.** Weather updates when the page reloads; a refresh button or timer would be a small addition. "Last updated" keeps counting while the page is open, but nothing fetches new data on its own.
+- **No automatic refresh.** Weather updates when the page reloads; a refresh button or timer would be a small addition.
+- **No page-wide "last updated" time.** Each location is cached separately, so there's no single honest age for the whole page. A header label built from the newest card's time was tried and removed: deleting that card made the number jump. Data age is shown per card instead, through the stale badge.
 - **Dark mode doesn't follow the system setting.** It defaults to light and remembers the user's choice; reading `prefers-color-scheme` as the default would be a one-line change.
 - **Types are copied, not shared.** If the backend's response shape changes, `src/types.ts` must be updated by hand.
 - **No frontend tests.** Behaviour was checked by driving the running app in a headless browser (add, errors, remove, server down, phone width). The backend's R2–R4 logic does have automated tests.
