@@ -5,6 +5,7 @@ import AddCityForm from "./components/AddCityForm";
 import LoadingGrid from "./components/LoadingGrid";
 import LocationCard from "./components/LocationCard";
 import ServerDown from "./components/ServerDown";
+import ThemeToggle from "./components/ThemeToggle";
 
 /** The page is always in exactly one of these states; never a blank screen. */
 type PageState =
@@ -98,7 +99,10 @@ export default function App() {
         )}
       </main>
 
-      <footer className="footer">Weather data from Open-Meteo.</footer>
+      <footer className="footer">
+        <span>Weather data from Open-Meteo.</span>
+        <ThemeToggle />
+      </footer>
     </div>
   );
 }
