@@ -74,11 +74,13 @@ input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---- Page layout ---- */
 
-/* Wide enough for 5 cards per row; the grid's auto-fill picks 1-5 columns from the width. */
+/* Wide enough for 5 cards per row; the grid's auto-fill picks 1-5 columns from the width.
+   Side padding grows with the window (5vw), but never below 20px or above 72px,
+   so there's always a visible margin around the content. */
 .page {
-  max-width: 1480px;
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 48px 24px 64px;
+  padding: 48px clamp(20px, 5vw, 72px) 64px;
   display: flex;
   flex-direction: column;
   gap: 32px;
