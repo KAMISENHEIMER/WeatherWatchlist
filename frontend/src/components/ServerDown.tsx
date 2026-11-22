@@ -7,7 +7,7 @@ interface Props {
 export default function ServerDown({ message, onRetry }: Props) {
   return (
     <div className="panel" role="alert">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.6"
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" strokeWidth="1.6"
         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M2 2l20 20" />
         <path d="M8.5 16.5a5 5 0 0 1 7 0" />

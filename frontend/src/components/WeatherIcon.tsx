@@ -18,15 +18,16 @@ const SMALL_CLOUD = "M7 14h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 5.6 4.2 4.2 0 0 0 
 
 export default function WeatherIcon({ code }: { code: number }) {
   const kind = iconKind(code);
-  const color = kind === "sun" || kind === "partly" ? "#b45309" : kind === "rain" ? "#1d4ed8" : "#475569";
+  // Colour comes from CSS (.weather-icon.sun / .rain in styles.css) so dark mode can change it.
+  const tone = kind === "sun" || kind === "partly" ? "sun" : kind === "rain" ? "rain" : "";
 
   return (
     <svg
+      className={`weather-icon ${tone}`}
       width="44"
       height="44"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color}
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -42,7 +43,7 @@ export default function WeatherIcon({ code }: { code: number }) {
         <>
           <path d="M8 3v1.5M3.5 8H2M4.8 4.8l1 1M12.4 6.2l1-1" />
           <path d="M5.3 10.6A3.5 3.5 0 0 1 11 6.4" />
-          <path d={CLOUD} stroke="#475569" />
+          <path d={CLOUD} className="muted" />
         </>
       )}
       {kind === "cloud" && <path d={CLOUD} />}
